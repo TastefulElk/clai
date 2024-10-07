@@ -25,7 +25,7 @@ export CLAI_OPENAI_KEY=your-key
 Then run clai:
 
 ```bash
-$ clai -q "Find all rows in log.txt that contains the words 'error' or 'warn'"
+$ clai "Find all rows in log.txt that contains the words 'error' or 'warn'"
 Here's the suggested command(s) to run:
 grep -Ei 'error|warn' log.txt
 Do you want to run it directly? y/N

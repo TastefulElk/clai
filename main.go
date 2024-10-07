@@ -23,7 +23,7 @@ func main() {
 	flaggy.SetVersion(version)
 
 	var query string
-	flaggy.String(&query, "q", "query", "The query you want to ask the CLI.")
+	flaggy.AddPositionalValue(&query, "query", 1, true, "The problem you want to solve.")
 
 	var model string
 	flaggy.String(&model, "m", "model", "The model you want to use. (Default gpt-4o)")
