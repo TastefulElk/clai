@@ -5,10 +5,9 @@ CLI commands for you based on your input.
 
 ## Installation
 
-````bash
-```sh
+```bash
 go install github.com/tastefulelk/clai
-````
+```
 
 ## Requirements
 
