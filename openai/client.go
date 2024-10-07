@@ -69,7 +69,6 @@ func Query(queryArgs QueryArg) (string, error) {
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(requestBody))
-
 	if err != nil {
 		log.Fatal("Error creating request:", err)
 	}
@@ -79,7 +78,6 @@ func Query(queryArgs QueryArg) (string, error) {
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-
 	if err != nil {
 		log.Fatal("Error sending request:", err)
 	}
@@ -87,7 +85,6 @@ func Query(queryArgs QueryArg) (string, error) {
 	defer resp.Body.Close()
 
 	responseBody, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		log.Fatal("Error reading response body:", err)
 	}

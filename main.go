@@ -1,14 +1,15 @@
 package main
 
 import (
-	"example.com/go-gpt/openai"
 	"fmt"
-	"github.com/integrii/flaggy"
-	"log"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
+
+	"github.com/TastefulElk/clai/command"
+	"github.com/TastefulElk/clai/logger"
+	"github.com/TastefulElk/clai/openai"
+
+	"github.com/integrii/flaggy"
 )
 
 var defaultModel string = "gpt-4o"
@@ -26,32 +27,39 @@ func main() {
 	var apiToken string
 	flaggy.String(&apiToken, "t", "api-token", "The API token you want to use.")
 
-	var shell string
-	flaggy.String(&shell, "s", "shell", "The shall that you want the commands to be executable in.")
-
 	var verbose bool
 	flaggy.Bool(&verbose, "v", "verbose", "Enable verbose logging.")
 
 	flaggy.Parse()
 
+	log, cleanup := logger.GetLogger(verbose)
+	defer cleanup()
+
+	log.Println("parsed 'query': ", query)
+	log.Println("parsed 'model': ", model)
+	log.Println("parsed 'verbose': ", verbose)
+
 	if strings.TrimSpace(query) == "" {
+		log.Println("no query provided, exiting.")
 		flaggy.ShowHelpAndExit("'query' is required.")
 	}
 
-	if apiToken == "" {
+	if strings.TrimSpace(apiToken) == "" {
+		log.Println("no api token provided, checking environment var CLAI_OPENAI_TOKEN.")
 		apiToken = os.Getenv("CLAI_OPENAI_TOKEN")
 		if apiToken == "" {
+			log.Println("no api token found in environment either, exiting.")
 			flaggy.ShowHelpAndExit("No API token found in environment. Either pass it as a flag or set the CLAI_OPENAI_TOKEN environment variable.")
 		}
 	}
 
-	if shell == "" {
-		shell = os.Getenv("SHELL")
-	}
-
-	if model == "" {
+	if strings.TrimSpace(model) == "" {
+		log.Println("no model provided, using default model ", defaultModel)
 		model = defaultModel
 	}
+
+	shell, _ := command.GetShell()
+	log.Println("detected shell: ", shell)
 
 	res, err := openai.Query(openai.QueryArg{
 		Query:    query,
@@ -59,17 +67,16 @@ func main() {
 		ApiToken: apiToken,
 		Shell:    shell,
 	})
-
 	if err != nil {
+		fmt.Println("Error generating result:", err)
 		log.Fatal("Error querying:", err)
 	}
 
+	log.Println("suggested command(s): ", res)
+
 	const (
-		Red    = "\033[31m"
-		Green  = "\033[32m"
-		Yellow = "\033[33m"
-		Blue   = "\033[34m"
-		Reset  = "\033[0m"
+		Green = "\033[32m"
+		Reset = "\033[0m"
 	)
 
 	fmt.Println("Here's the suggested command(s) to run:")
@@ -80,46 +87,11 @@ func main() {
 	var input string
 	fmt.Scanln(&input)
 	if input != "y" {
+		log.Println("user chose not to run the command.")
 		return
 	}
 
-	runCommand(res)
-}
-
-// getShell dynamically detects the shell being used
-func getShell() (string, string) {
-	if runtime.GOOS == "windows" {
-		// Windows: prefer PowerShell if available, else fallback to cmd.exe
-		if os.Getenv("ComSpec") != "" {
-			return "cmd.exe", "/C"
-		}
-		return "powershell.exe", "-Command"
-	} else {
-		// Unix-like systems: use the SHELL environment variable or fallback to /bin/sh
-		shell := os.Getenv("SHELL")
-		if shell == "" {
-			shell = "/bin/sh" // fallback to /bin/sh if SHELL is not set
-		}
-
-		return shell, "-c"
-	}
-}
-
-// runCommand runs the generated command in the detected shell
-func runCommand(command string) error {
-	shell, shellFlag := getShell()
-
-	// Create the command to execute using the detected shell
-	cmd := exec.Command(shell, shellFlag, command)
-
-	// Set up to pipe the output and error directly to stdout/stderr
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	// Run the command
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to execute command: %w", err)
-	}
-
-	return nil
+	log.Println("user chose to run the command - executing.")
+	command.RunCommand(res)
+	log.Println("command executed, exiting")
 }

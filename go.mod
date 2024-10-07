@@ -1,4 +1,4 @@
-module example.com/go-gpt
+module github.com/TastefulElk/clai
 
 go 1.23.2
 
