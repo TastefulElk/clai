@@ -12,11 +12,15 @@ import (
 	"github.com/integrii/flaggy"
 )
 
-var defaultModel string = "gpt-4o"
+var (
+	defaultModel string = "gpt-4o"
+	version      string = "0.0.1"
+)
 
 func main() {
 	flaggy.SetName("GPT CLI")
 	flaggy.SetDescription("Ask the CLI for what you want do do then confirm the result to run it.")
+	flaggy.SetVersion(version)
 
 	var query string
 	flaggy.String(&query, "q", "query", "The query you want to ask the CLI.")
