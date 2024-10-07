@@ -6,23 +6,12 @@ import (
 	"os"
 )
 
-func GetLogger(verbose bool) (*log.Logger, func()) {
-	logFile, err := os.OpenFile("clai.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
-	if err != nil {
-		log.Fatal("Error opening log file:", err)
+func GetLogger(verbose bool) *log.Logger {
+	if !verbose {
+		// If not verbose, return a logger that writes to a no-op writer
+		return log.New(io.Discard, "", 0) // io.Discard discards all output
 	}
 
-	var output io.Writer
-
-	if verbose {
-		output = io.MultiWriter(os.Stdout, logFile)
-	} else {
-		output = logFile
-	}
-
-	logger := log.New(output, "", log.Ldate|log.Ltime|log.Lshortfile)
-
-	return logger, func() {
-		logFile.Close()
-	}
+	// If verbose, log to stdout
+	return log.New(os.Stdout, "LOG: ", log.Ldate|log.Ltime|log.Lshortfile)
 }

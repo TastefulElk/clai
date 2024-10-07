@@ -36,8 +36,7 @@ func main() {
 
 	flaggy.Parse()
 
-	log, cleanup := logger.GetLogger(verbose)
-	defer cleanup()
+	log := logger.GetLogger(verbose)
 
 	log.Println("parsed 'query': ", query)
 	log.Println("parsed 'model': ", model)
