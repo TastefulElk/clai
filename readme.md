@@ -31,6 +31,8 @@ grep -Ei 'error|warn' log.txt
 Do you want to run it directly? y/N
 ```
 
+Use it, for example, to help you with searching, modifying files, or getting out of a git mess.
+
 ### Options
 
 - `-m|--model`: Specify the model to use. (Default `gpt-4o`)
