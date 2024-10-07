@@ -2,7 +2,9 @@ package openai
 
 import (
 	"bytes"
-	"fmt"
+	"encoding/json"
+	"errors"
+	"io"
 	"log"
 	"net/http"
 )
@@ -13,37 +15,60 @@ type QueryArg struct {
 	Query    string
 	Model    string
 	ApiToken string
+	Shell    string
 }
 
-func Query(queryArgs QueryArg) string {
+type message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type Payload struct {
+	Model    string    `json:"model"`
+	Messages []message `json:"messages"`
+}
+
+func Query(queryArgs QueryArg) (string, error) {
 	systemMessage := `
     You are a helpful assistant living in a CLI application.
     Your job is to respond to the users problem with a CLI command or a series of commands that solves the problem posed.
 
-    Ex. input: "I want to find all files in the current directory that contains the text 'foo' in them."
-    Ex. output: "grep -r 'foo' ."
+    Send the raw commands, no formatting.
 
-    Ex. input: "I want to tail the log file log.txt"
-    Ex. output: "tail -f log.txt"
+    If you don't understand the problem, or for any reason are unable to respond with cli commands, send the string "n/a".
+    NEVER return with anything else other than commands that are directly executable or "n/a".
+
+    The shell for which the commands should be executed in will be passed as the first part of the query
+
+    Ex. input: 'bash: I want to find all files in the current directory that contains the text 'foo' in them.'
+    Ex. output: 'grep -r 'foo' .'
+
+    Ex. input: 'powershell: I want to tail the log file log.txt'
+    Ex. output: 'tail -f log.txt'
 
     Your responses will, after confirmation, be executed directly, so be careful with what you output.
   `
 
-	body := `{
-    "model": "` + queryArgs.Model + `",
-    "messages": [
-      {
-        "role": "system",
-        "content": "` + systemMessage + `"
-      },
-      {
-        "role": "user",
-        "content": "` + queryArgs.Query + `"
-      }
-    ]
-  }`
+	payload := Payload{
+		Model: queryArgs.Model,
+		Messages: []message{
+			{
+				Role:    "system",
+				Content: systemMessage,
+			},
+			{
+				Role:    "user",
+				Content: queryArgs.Shell + ": " + queryArgs.Query,
+			},
+		},
+	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(body)))
+	requestBody, err := json.Marshal(payload)
+	if err != nil {
+		log.Fatal("Error marshalling request body:", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(requestBody))
 
 	if err != nil {
 		log.Fatal("Error creating request:", err)
@@ -51,8 +76,6 @@ func Query(queryArgs QueryArg) string {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+queryArgs.ApiToken)
-
-	fmt.Println("Sending request: ", req)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -63,16 +86,30 @@ func Query(queryArgs QueryArg) string {
 
 	defer resp.Body.Close()
 
-	log.Println("Response Status:", resp.Status)
-
-	responseBody := new(bytes.Buffer)
-
-	_, err = responseBody.ReadFrom(resp.Body)
+	responseBody, err := io.ReadAll(resp.Body)
 
 	if err != nil {
 		log.Fatal("Error reading response body:", err)
 	}
 
-	log.Println("Response Body:", responseBody)
-	return responseBody.String()
+	// Parse response
+	var chatResponse struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	err = json.Unmarshal(responseBody, &chatResponse)
+	if err != nil {
+		log.Fatal("Error parsing response:", err)
+	}
+
+	commands := chatResponse.Choices[0].Message.Content
+
+	if commands == "n/a" {
+		return "", errors.New("no result")
+	}
+
+	return commands, nil
 }
